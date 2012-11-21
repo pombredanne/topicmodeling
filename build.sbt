@@ -11,6 +11,8 @@ libraryDependencies  ++= Seq(
   "org.scalanlp" %% "breeze-viz" % "0.1"
 )
 
+libraryDependencies += "org.scalatest" %% "scalatest" % "1.8" % "test"
+
 resolvers ++= Seq(
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 )
