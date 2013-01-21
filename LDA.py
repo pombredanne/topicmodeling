@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csc_matrix
 from numpy.random import randn
 from sklearn.preprocessing import normalize
 
