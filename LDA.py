@@ -74,11 +74,11 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
         """Performs variational update for document `d` and word `w`
         """
         def variational_update(d, w):
-            old_z = z[d][w].data * docs[d, w]
+            old_z = z[d][w].data
             #we take expectations ignoring current document and current word
-            N[w, :] -= old_z
-            Nt[:] -= old_z
-            Nd[d] -= old_z
+            N[w] -= M[d][w]
+            Nt[:] -= M[d][w]
+            Nd[d] -= M[d][w]
             #update
             new_z = N[w] / Nt * Nd[d]
             #normalization
@@ -86,10 +86,10 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
             #write new values back
             z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] = new_z
             #counts update
-            new_z *= docs[d, w]
-            N[w, :] += new_z
-            Nt[:] += new_z
-            Nd[d] += new_z
+            M[d][w] = new_z * docs[d, w]
+            N[w] += M[d][w]
+            Nt[:] += M[d][w]
+            Nd[d] += M[d][w]
 
             return np.mean(np.abs(old_z - new_z))
 
