@@ -32,9 +32,6 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
     #array z
     z = np.zeros(D, dtype=object)
 
-    #for performance purposes we also store q(z) weighted by docs[d, w]
-    M = np.zeros(D, dtype=object)
-
     #initialize counts
     #N[t, w] = expectaction of unnormalized phi_{k,w}
     N = np.zeros((V, K), dtype=float)
@@ -56,9 +53,9 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
         z[d] = normalize(z[d], norm='l1', axis=1)
 
         #update counts
-        M[d] = diag(docs[d]).dot(z[d]).toarray()
-        N += M[d]
-        Nd[d] = M[d].sum(axis=0) + alpha
+        M = diag(docs[d]).dot(z[d]).toarray()
+        N += M
+        Nd[d] = M.sum(axis=0) + alpha
 
         log('document %d/%d preinitialized' % (d + 1, D))
 
@@ -74,11 +71,11 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
         """Performs variational update for document `d` and word `w`
         """
         def variational_update(d, w):
-            old_z = z[d][w].data
+            old_z = z[d][w].data * docs[d, w]
             #we take expectations ignoring current document and current word
-            N[w] -= M[d][w]
-            Nt[:] -= M[d][w]
-            Nd[d] -= M[d][w]
+            N[w] -= old_z
+            Nt[:] -= old_z
+            Nd[d] -= old_z
             #update
             new_z = N[w] / Nt * Nd[d]
             #normalization
@@ -86,10 +83,10 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
             #write new values back
             z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] = new_z
             #counts update
-            M[d][w] = new_z * docs[d, w]
-            N[w] += M[d][w]
-            Nt[:] += M[d][w]
-            Nd[d] += M[d][w]
+            new_z *= docs[d, w]
+            N[w] += new_z
+            Nt[:] += new_z
+            Nd[d] += new_z
 
             return np.mean(np.abs(old_z - new_z))
 
