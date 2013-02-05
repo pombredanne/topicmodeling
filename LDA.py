@@ -2,7 +2,6 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from numpy.random import rand
 from sklearn.preprocessing import normalize
-import pdb
 from misc import diag
 from time import time
 
@@ -15,7 +14,7 @@ def var_low_bound(docs, z, alpha, beta):
     return 0
 
 
-def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
+def TCVB0(docs, alpha, beta, epsilon=0.0001, log=no_log):
     """Estimates variational word-to-topic assignments for each word in
     a corpus.
     :param docs: scipy sparse DxV matrix where `docs`[d, w] is frequency of
