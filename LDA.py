@@ -6,8 +6,13 @@ import pdb
 from misc import diag
 from time import time
 
+
 def no_log(str):
     print str
+
+
+def var_low_bound(docs, z, alpha, beta):
+    return 0
 
 
 def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
@@ -26,6 +31,9 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
     #store variational q_{z_{d,w} = t} for each d as sparse table in
     #array z
     z = np.zeros(D, dtype=object)
+
+    #for performance purposes we also store q(z) weighted by docs[d, w]
+    M = np.zeros(D, dtype=object)
 
     #initialize counts
     #N[t, w] = expectaction of unnormalized phi_{k,w}
@@ -48,8 +56,9 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
         z[d] = normalize(z[d], norm='l1', axis=1)
 
         #update counts
-        N += diag(docs[d]).dot(z[d]).toarray()
-        Nd[d] = z[d].sum(axis=0) + alpha
+        M[d] = diag(docs[d]).dot(z[d]).toarray()
+        N += M[d]
+        Nd[d] = M[d].sum(axis=0) + alpha
 
         log('document %d/%d preinitialized' % (d + 1, D))
 
@@ -65,38 +74,43 @@ def TCVB0(docs, alpha, beta, epsilon=0.00001, log=no_log):
         """Performs variational update for document `d` and word `w`
         """
         def variational_update(d, w):
-            old_z = z[d][w].data
+            old_z = z[d][w].data * docs[d, w]
             #we take expectations ignoring current document and current word
             N[w, :] -= old_z
             Nt[:] -= old_z
             Nd[d] -= old_z
             #update
-            new_z = old_z.copy()
             new_z = N[w] / Nt * Nd[d]
             #normalization
             new_z /= new_z.sum()
             #write new values back
             z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] = new_z
             #counts update
-            #new_z = z[d][w].data
+            new_z *= docs[d, w]
             N[w, :] += new_z
             Nt[:] += new_z
             Nd[d] += new_z
 
-            return np.max(np.abs(old_z - new_z))
+            return np.mean(np.abs(old_z - new_z))
 
         iteration_time = time()
+        avg_diff = 0.0
         #for each document
         for d in xrange(D):
             #for each word in a document
+            #doc_time = time()
             max_diff = 0.0
-            doc_time = time()
+            doc_diff = 0.0
             for w in docs[d].nonzero()[1]:
-                #do variational update and estimate max difference
-                max_diff = np.max(variational_update(d, w), max_diff)
-            log('document %d/%d was updated. max diff is %f. time: %f' % (d + 1, D, max_diff, time() - doc_time))
+                #do variational update and estimate difference
+                word_diff = variational_update(d, w)
+                max_diff = max(max_diff, word_diff)
+                doc_diff += word_diff
+            avg_diff += doc_diff
+            #log('document %d/%d was updated. max diff is %f. time: %f' % (d + 1, D, max_diff, time() - doc_time))
 
-        log('iteration %d. max diff is %f. time: %f' % (iteration, max_diff, time() - iteration_time))
+        avg_diff /= D * docs[d].nonzero()[1].size
+        log('iteration %d. avg diff: %f. max diff: %f. time: %f' % (iteration, avg_diff, max_diff, time() - iteration_time))
 
         if max_diff < epsilon:
             break
