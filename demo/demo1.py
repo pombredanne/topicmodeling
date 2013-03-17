@@ -3,7 +3,7 @@ import sys
 import numpy as np
 from os import path
 from scipy.sparse import csr_matrix
-from random import shuffle
+from cPickle import dump
 
 sys.path.append(path.abspath(path.join(path.dirname(__file__), "..")))
 
@@ -63,4 +63,8 @@ print 'reading data...'
 train_data, test_data = map(read_data, ["train.data", "test.data"])
 
 print 'training model...'
-TCVB0(train_data, alpha, beta)
+z = TCVB0(train_data[:1000], alpha, beta)
+
+print 'model trained'
+with open('LDA.dump', 'w') as output:
+    dump(z, output)

@@ -2,12 +2,9 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from numpy.random import rand
 from sklearn.preprocessing import normalize
-from misc import diag
+from misc import diag, no_log
 from time import time
-
-
-def no_log(str):
-    print str
+from pdb import set_trace
 
 
 def var_low_bound(docs, z, alpha, beta):
@@ -46,12 +43,12 @@ def TCVB0(docs, alpha, beta, epsilon=0.0001, log=no_log):
 
         #z[d] is VxK sparse row matrix
         z[d] = csr_matrix((init, ij), shape=(V, K))
-        #N += z[d]
 
         #normalize z[d]
         z[d] = normalize(z[d], norm='l1', axis=1)
 
         #update counts
+        #set_trace()
         M = diag(docs[d]).dot(z[d]).toarray()
         N += M
         Nd[d] = M.sum(axis=0) + alpha
@@ -67,45 +64,50 @@ def TCVB0(docs, alpha, beta, epsilon=0.0001, log=no_log):
     #do variational updates until convergence
     iteration = 1
     while True:
-        """Performs variational update for document `d` and word `w`
-        """
-        def variational_update(d, w):
-            old_z = z[d][w].data * docs[d, w]
-            #we take expectations ignoring current document and current word
-            N[w] -= old_z
-            Nt[:] -= old_z
-            Nd[d] -= old_z
-            #update
-            new_z = N[w] / Nt * Nd[d]
-            #normalization
-            new_z /= new_z.sum()
-            #write new values back
-            z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] = new_z
-            #counts update
-            new_z *= docs[d, w]
-            N[w] += new_z
-            Nt[:] += new_z
-            Nd[d] += new_z
-
-            return np.mean(np.abs(old_z - new_z))
-
         iteration_time = time()
         avg_diff = 0.0
+
         #for each document
         for d in xrange(D):
             #for each word in a document
-            #doc_time = time()
             max_diff = 0.0
             doc_diff = 0.0
-            for w in docs[d].nonzero()[1]:
-                #do variational update and estimate difference
-                word_diff = variational_update(d, w)
-                max_diff = max(max_diff, word_diff)
-                doc_diff += word_diff
-            avg_diff += doc_diff
-            #log('document %d/%d was updated. max diff is %f. time: %f' % (d + 1, D, max_diff, time() - doc_time))
 
-        avg_diff /= D * docs[d].nonzero()[1].size
+            doc_w = docs.data[docs.indptr[d]:docs.indptr[d + 1]]
+
+            i = 0
+            old_z_d = z[d].data.copy()
+            #for each word in the document d
+            #do variational update and estimate difference
+            for w in docs.indices[docs.indptr[d]:docs.indptr[d + 1]]:
+                #save old q(z_d) distribution
+                old_z = z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] * doc_w[i]
+                #we take expectations ignoring current document and current word
+                N[w] -= old_z
+                Nt[:] -= old_z
+                Nd[d] -= old_z
+                #update
+                new_z = N[w] / Nt * Nd[d]
+                #normalization
+                new_z /= new_z.sum()
+                #write new values back
+                z[d].data[z[d].indptr[w]:z[d].indptr[w + 1]] = new_z
+                #expectations update
+                new_z *= doc_w[i]
+                N[w] += new_z
+                Nt[:] += new_z
+                Nd[d] += new_z 
+
+                i += 1
+
+                #word_diff = variational_update(d, w)
+            doc_diff += np.abs(old_z_d - z[d].data)
+            avg_diff += doc_diff.sum()
+            max_diff = max(max_diff, doc_diff.max())
+            if d % 100 == 0:
+                log('document %d/%d was updated' % (d + 1, D))
+
+        avg_diff /= docs.nnz * K
         log('iteration %d. avg diff: %f. max diff: %f. time: %f' % (iteration, avg_diff, max_diff, time() - iteration_time))
 
         if max_diff < epsilon:
