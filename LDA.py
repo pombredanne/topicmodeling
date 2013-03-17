@@ -18,7 +18,7 @@ def TCVB0(docs, alpha, beta, epsilon=0.0001, log=no_log):
     word `w` in document `d`
     :param alpha: K-dimensional `numpy.array` with topic proportions
     smoothing parameters
-    :param beta: topic smoothing parameter
+    :param beta: topic smoothing parameter (can be scalar or VxK matrix)
     :param epsilon: minimal update value for convergence detection
     """
     D, V = docs.shape
@@ -59,7 +59,13 @@ def TCVB0(docs, alpha, beta, epsilon=0.0001, log=no_log):
     N = np.asarray(N) + beta
 
     #Nt[t] is pre-computed unnormalized expectation topic t
-    Nt = np.squeeze(np.asarray(N.sum(axis=0))) + V * beta
+    Nt = np.squeeze(np.asarray(N.sum(axis=0)))
+    if type(beta) is float:
+        Nt += V * beta
+    elif type(beta) is np.ndarray:
+        Nt += beta.sum(axis=0)
+    else:
+        raise 'beta must be either scalar (float) number for symmetric prior or a full matrix VxK for custom prior'
 
     #do variational updates until convergence
     iteration = 1

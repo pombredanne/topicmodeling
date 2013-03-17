@@ -31,7 +31,6 @@ if len(argv) < 4:
 K = 20
 
 alpha = np.array([float(argv[2])] * K)
-beta = float(argv[3])
 
 
 def yopen(filename):
@@ -61,6 +60,8 @@ def read_data(filename):
 
 print 'reading data...'
 train_data, test_data = map(read_data, ["train.data", "test.data"])
+
+beta =  float(argv[3])
 
 print 'training model...'
 z = TCVB0(train_data[:1000], alpha, beta)
